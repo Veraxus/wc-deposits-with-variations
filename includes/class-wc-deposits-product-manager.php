@@ -13,7 +13,7 @@ class WC_Deposits_Product_Manager {
 	 * @param  int $product_id
 	 * @return bool
 	 */
-	public static function deposits_enabled( $product_id ) {
+	public static function deposits_enabled( $product_id, $check_variations = true ) {
 		$product = wc_get_product( $product_id );
 
 		if ( ! $product || $product->is_type( array( 'grouped', 'external' ) ) ) {
@@ -22,6 +22,21 @@ class WC_Deposits_Product_Manager {
 
 		$setting = get_post_meta( $product_id, '_wc_deposit_enabled', true );
 
+		if ( $check_variations && empty( $setting ) ) {
+			$children = get_children( array(
+				'post_parent' => $product_id,
+				'post_type' => 'product_variation',
+			) );
+
+			foreach ( $children as $child ) {
+				$child_enabled = get_post_meta( $child->ID, '_wc_deposit_enabled', true );
+				if ( $child_enabled ) {
+					$setting = $child_enabled;
+					break;
+				}
+			}
+		}
+		
 		if ( empty( $setting ) ) {
 			$setting = get_option( 'wc_deposits_default_enabled', 'no' );
 		}
@@ -66,8 +81,21 @@ class WC_Deposits_Product_Manager {
 	 * @param  int  $product_id
 	 * @return int
 	 */
-	public static function has_plans( $product_id ) {
-		$plans = sizeof( array_map( 'absint', array_filter( (array) get_post_meta( $product_id, '_wc_deposit_payment_plans', true ) ) ) );
+	public static function has_plans( $product_id, $inc_variations = true ) {
+		$plans = count( array_map( 'absint', array_filter( (array) get_post_meta( $product_id, '_wc_deposit_payment_plans', true ) ) ) );
+
+		// If using variations, merge child variations into array
+		if ( $inc_variations ) {
+			$children = get_children( array(
+				'post_parent' => $product_id,
+				'post_type' => 'product_variation',
+			) );
+
+			foreach ( $children as $child ) {
+				$plans = +count( array_map( 'absint', array_filter( (array) get_post_meta( $child->ID, '_wc_deposit_payment_plans', true ) ) ) );
+			}
+		}
+		
 		if ( $plans <= 0 ) {
 			$default_payment_plans = get_option( 'wc_deposits_default_plans', array() );
 			if ( empty( $default_payment_plans ) ) {
@@ -111,44 +139,7 @@ class WC_Deposits_Product_Manager {
 	 * @return float|bool
 	 */
 	public static function get_deposit_amount_for_display( $product, $plan_id = 0 ) {
-		if ( is_numeric( $product ) ) {
-			$product = wc_get_product( $product );
-		}
-		$type       = self::get_deposit_type( $product->id );
-		$percentage = false;
-
-		if ( in_array( $type, array( 'fixed', 'percent' ) ) ) {
-			$amount = get_post_meta( $product->id, '_wc_deposit_amount', true );
-
-			if ( ! $amount ) {
-				$amount = get_option( 'wc_deposits_default_amount' );
-			}
-
-			if ( ! $amount ) {
-				return false;
-			}
-
-			if ( 'percent' === $type ) {
-				$percentage = true;
-			}
-		} else {
-			if ( ! $plan_id ) {
-				return false;
-			}
-
-			$plan          = new WC_Deposits_Plan( $plan_id );
-			$schedule      = $plan->get_schedule();
-			$first_payment = current( $schedule );
-			$amount        = $first_payment->amount;
-			$percentage    = true;
-		}
-
-		if ( ! $percentage ) {
-			$tax_display_mode = get_option( 'woocommerce_tax_display_shop' );
-			$price            = $tax_display_mode == 'incl' ? $product->get_price_including_tax( 1, $amount ) : $product->get_price_excluding_tax( 1, $amount );
-		}
-
-		return $percentage ? $amount . '%' : wc_price( $amount );
+		self::get_deposit_amount( $product, $plan_id );
 	}
 
 	/**
@@ -163,11 +154,14 @@ class WC_Deposits_Product_Manager {
 		if ( is_numeric( $product ) ) {
 			$product = wc_get_product( $product );
 		}
-		$type       = self::get_deposit_type( $product->id );
+		
+		$item_id = ( $product->variation_id ) ? $product->variation_id : $product->id;
+		
+		$type       = self::get_deposit_type( $item_id );
 		$percentage = false;
 
 		if ( in_array( $type, array( 'fixed', 'percent' ) ) ) {
-			$amount = get_post_meta( $product->id, '_wc_deposit_amount', true );
+			$amount = get_post_meta( $item_id, '_wc_deposit_amount', true );
 
 			if ( ! $amount ) {
 				$amount = get_option( 'wc_deposits_default_amount' );
@@ -189,7 +183,7 @@ class WC_Deposits_Product_Manager {
 			$schedule      = $plan->get_schedule();
 			$first_payment = current( $schedule );
 			$amount        = $first_payment->amount;
-			$percentage    = true;
+			$percentage    = ( 'percentage' === $plan->get_type() );
 		}
 
 		if ( $percentage ) {

@@ -1,17 +1,44 @@
 jQuery(function($){
+	
+	var $wrapper = $('.wc-deposits-wrapper'),
+		$plan_ul = $('.wc-deposits-payment-plans'),
+		$plans = $plan_ul.find('.wc-deposits-payment-plan');
 
-	$('.wc-deposits-wrapper')
+	$wrapper
 		.on( 'init', function() {
 			$(this).find( '.wc-deposits-option' ).find( 'input:eq(0)' ).click();
 		})
 		.on( 'change', 'input[name="wc_deposit_option"]', function() {
-			$deposits = $(this).closest('.wc-deposits-wrapper');
-			if ( 'yes' === $(this).val() ) {
-				$deposits.find('.wc-deposits-payment-plans, .wc-deposits-payment-description').slideDown( 200 );
+			var $this = $(this),
+				$deposits = $this.closest('.wc-deposits-wrapper'),
+				$description = $deposits.find('.wc-deposits-payment-plans, .wc-deposits-payment-description');
+			if ( 'yes' === $this.val() ) {
+				$description.slideDown( 200 );
 			} else {
-				$deposits.find('.wc-deposits-payment-plans, .wc-deposits-payment-description').slideUp( 200 );
+				$description.slideUp( 200 );
+			}
+		})
+		.trigger( 'init' );
+	
+	$('form.variations_form')
+		.ready(function(){
+			$wrapper.hide();
+			$plans.filter('.product_variation').hide();
+			$(this).find('input.variation_id').change();
+		})
+		.on( 'change', 'input.variation_id', function(){
+			var value = $(this).val(),
+				$matches = $plans.filter('.item-'+value);
+			console.log( value );
+			if ( '' !== value ) {
+				$plans.filter('.product_variation').hide();
+				$matches.show();
+				$wrapper.slideDown();
+			}
+			else {
+				$plans.filter('.product_variation').hide();
+				$wrapper.slideUp();
 			}
 		});
 
-	$('.wc-deposits-wrapper').trigger( 'init' );
 });

@@ -10,7 +10,14 @@
 		<div class="wc-col-left">
 			<div class="wc-col-wrap">
 				<h3><?php _e( 'Add Payment Plan', 'woocommerce-deposits' ); ?></h3>
-				<?php include( 'html-payment-plan-form.php' ); ?>
+				<?php 
+				if ( 'variation' === $product_type ) {
+					include( 'html-payment-plan-form-variation.php' );
+				}
+				else {
+					include( 'html-payment-plan-form.php' );
+				}
+				?>
 			</div>
 		</div>
 	</div>

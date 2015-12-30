@@ -141,6 +141,51 @@
 			color: red;
 		}
 	}
+	&, &.percentage {
+		td.cell-percent span {
+			display: inline;
+		}
+		td.cell-currency span {
+			display: none;
+		}
+	}
+	&.fixed {
+		table-layout: auto;
+		td.cell-percent {
+			span {
+				display: none;
+			}
+		}
+		td.cell-amount {
+			min-width: 135px;
+		}
+		td.cell-currency {
+			max-width: 1rem;
+			text-align: right;
+			span {
+				display: inline;
+			}
+		}
+		th.total-percentage-calc span {
+			display: none;
+		}
+		tr.remainder {
+			td.cell-currency span {
+				display: none;
+			}
+			td.cell-actions {
+				* {
+					display: none;
+				}
+			}
+		}
+	}
+}
+
+.woocommerce_variable_attributes {
+	.woocommerce_deposits_panel {
+		display: block !important;
+	}
 }
 
 #woocommerce-product-data {

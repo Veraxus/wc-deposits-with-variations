@@ -25,9 +25,14 @@ jQuery(function($){
 		.on( 'change input', '.plan_amount', function() {
 			var $table = $('table.wc-deposits-plan');
 			var total  = 0;
-			$table.find('.plan_amount').each(function(){
-				total = total + parseFloat( ( $(this).val() || 0 ) );
-			});
+			if ( $table.hasClass('fixed') ) {
+				total = 100;
+			}
+			else {
+				$table.find('.plan_amount').each(function(){
+					total = total + parseFloat( ( $(this).val() || 0 ) );
+				});
+			}
 			$table.find('.total_percent').text( total );
 		})
 		.on( 'change input', '.plan_interval_amount, .plan_interval_unit', function() {
@@ -73,5 +78,26 @@ jQuery(function($){
 			$total_duration.text( duration.join(', ') );
 		});
 
+	$('#deposit-plan-form')
+		.on( 'change input', '.wc-deposits-plan-type input', function(){
+			var $table 		 = $('table.wc-deposits-plan');
+			var plan_type    = $(this).prop('value');
+			var $new_row 	 = $('<div/>').html( $table.data( 'row' ) );
+			$table.removeClass().addClass( 'wc-deposits-plan ' + plan_type );
+			$table.data( 'plan-type', plan_type );
+			if ( 'fixed' === plan_type ) {
+				$new_row.find( 'tr' ).addClass( 'remainder' );
+				$new_row.find( '.cell-amount input' ).attr( 'type', 'hidden' ).val( 'remainder' );
+				$new_row.find( '.cell-amount' ).append( wc_deposits_payment_plans_params.plan_remainder );
+				$table.find( 'tbody' ).append( $new_row.html() );
+				$table.find('.total_percent').text( 100 );
+			}
+			else {
+				$table.find('tr.remainder').remove();
+				$table.find('.plan_amount').change();
+			}
+		});
+
 	$('table.wc-deposits-plan').find( '.plan_interval_amount, .plan_amount' ).change();
+
 });

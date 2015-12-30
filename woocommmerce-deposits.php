@@ -3,13 +3,14 @@
  * Plugin Name: WooCommerce Deposits
  * Plugin URI: http://www.woothemes.com/products/woocommerce-deposits/
  * Description: Mark items as deposit items which customers can then place deposits on, rather than paying in full.
- * Version: 1.1.4
+ * Version: 1.2.0
+ * Forked from: 1.1.4
  * Author: WooThemes
  * Author URI: http://woothemes.com/
  * Text Domain: woocommerce-deposits
  * Domain Path: /languages
  *
- * 		Copyright: © 2009-2015 WooThemes.
+ * 		Copyright: © 2009-2016 WooThemes.
  *  	License: GNU General Public License v3.0
  *   	License URI: http://www.gnu.org/licenses/gpl-3.0.html
  */
@@ -51,7 +52,7 @@ if ( is_woocommerce_active() ) {
 		public function __construct() {
 			global $wpdb;
 
-			define( 'WC_DEPOSITS_VERSION', '1.1.4' );
+			define( 'WC_DEPOSITS_VERSION', '1.2.0' );
 			define( 'WC_DEPOSITS_FILE', __FILE__ );
 			define( 'WC_DEPOSITS_PLUGIN_URL', untrailingslashit( plugins_url( basename( plugin_dir_path( __FILE__ ) ), basename( __FILE__ ) ) ) );
 			define( 'WC_DEPOSITS_TEMPLATE_PATH', untrailingslashit( plugin_dir_path( __FILE__ ) ) . '/templates/' );
@@ -149,6 +150,7 @@ if ( is_woocommerce_active() ) {
 	ID bigint(20) unsigned NOT NULL auto_increment,
 	name varchar(255) NOT NULL,
 	description longtext NOT NULL,
+	type varchar(255) NOT NULL default 'percentage',
 	PRIMARY KEY  (ID)
 	) $collate;
 	CREATE TABLE {$wpdb->wc_deposits_payment_plans_schedule} (

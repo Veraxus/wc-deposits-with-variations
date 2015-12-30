@@ -41,6 +41,10 @@ class WC_Deposits_Scheduled_Order_Manager {
 		$current_timestamp = current_time( 'timestamp' );
 		$payment_number    = 2;
 		$line_price        = self::_get_normalized_price_before_plan( $payment_plan, $item );
+		$plan_type         = $payment_plan->get_type();
+		
+		// Track the amount of each payment (start with deposit)
+		$previous_payments = $schedule[0]->amount;
 
 		// Skip first payment - that was taken already
 		array_shift( $schedule );
@@ -50,8 +54,20 @@ class WC_Deposits_Scheduled_Order_Manager {
 			$current_timestamp = strtotime( "+{$schedule_row->interval_amount} {$schedule_row->interval_unit}", $current_timestamp );
 
 			// Work out how much the payment will be for
-			$item['amount'] = ( $line_price / 100 ) * $schedule_row->amount;
-
+			if ( 'fixed' === $plan_type ) {
+				if ( 'remainder' === $schedule_row->amount ) {
+					$item['amount'] = $line_price - $previous_payments;
+				}
+				else {
+					$item['amount'] = $schedule_row->amount;
+				}
+			}
+			else {
+				$item['amount'] = ( $line_price / 100 ) * $schedule_row->amount;
+			}
+			
+			$previous_payments += $item['amount'];
+				
 			// Create order
 			WC_Deposits_Order_Manager::create_order( $current_timestamp, $original_order_id, $payment_number, $item, 'scheduled-payment' );
 			$payment_number ++;
@@ -70,10 +86,17 @@ class WC_Deposits_Scheduled_Order_Manager {
 	 * @return float Line price
 	 */
 	private static function _get_normalized_price_before_plan( $plan, $item ) {
-		$total_percent    = $plan->get_total_percent();
-		$price_after_plan = ! empty( $item['price_excluding_tax'] ) ? $item['price_excluding_tax'] : $item['product']->get_price_excluding_tax( $item['qty'] );
+		$price_after_plan = ! empty( $item['price_excluding_tax'] ) 
+			? $item['price_excluding_tax'] 
+			: $item['product']->get_price_excluding_tax( $item['qty'] );
 
-		$line_price = ( $price_after_plan * 100 ) / $total_percent;
+		if ( 'percentage' === $plan->get_type() ) {
+			$total_percent    = $plan->get_total_percent();
+			$line_price = ( $price_after_plan * 100 ) / $total_percent;
+		}
+		else {
+			$line_price = $price_after_plan;
+		}
 
 		return $line_price;
 	}

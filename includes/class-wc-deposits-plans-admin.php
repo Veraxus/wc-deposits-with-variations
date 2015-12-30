@@ -33,7 +33,8 @@ class WC_Deposits_Plans_Admin {
 	public function styles_and_scripts() {
 		wp_register_script( 'woocommerce-deposits-payment-plans', WC_DEPOSITS_PLUGIN_URL . '/assets/js/payment-plans.js', array( 'jquery' ), WC_DEPOSITS_VERSION, true );
 		wp_localize_script( 'woocommerce-deposits-payment-plans', 'wc_deposits_payment_plans_params', array(
-			'i18n_delete_plan' => __( 'Are you sure you want to delete this plan? This action cannot be undone.', 'woocommerce-deposits' )
+			'i18n_delete_plan' => __( 'Are you sure you want to delete this plan? This action cannot be undone.', 'woocommerce-deposits' ),
+			'plan_remainder'   => __( 'Remainder', 'woocommerce-deposits' ),
 		) );
 		wp_enqueue_style( 'wc-deposits-admin', plugins_url( '/assets/css/admin.css', WC_DEPOSITS_FILE ) );
 	}
@@ -42,7 +43,13 @@ class WC_Deposits_Plans_Admin {
 	 * Add a menu item for the shipping zones screen
 	 */
 	public function add_menu_item() {
-		$page = add_submenu_page( 'edit.php?post_type=product', __( 'Payment Plans', 'woocommerce-deposits' ), __( 'Payment Plans', 'woocommerce-deposits' ) , 'manage_woocommerce', 'deposit_payment_plans', array( $this, 'output' ) );
+		$page = add_submenu_page( 
+			'edit.php?post_type=product', 
+			__( 'Payment Plans', 'woocommerce-deposits' ), 
+			__( 'Payment Plans', 'woocommerce-deposits' ) , 
+			'manage_woocommerce', 
+			'deposit_payment_plans', 
+			array( $this, 'output' ) );
 	}
 	/**
 	 * Register the shipping zones screen ID
@@ -55,10 +62,23 @@ class WC_Deposits_Plans_Admin {
 	}
 
 	/**
-	 * Output the admin screen
+	 * Output the deposits product tab
 	 */
 	public function output() {
-		global $wpdb;
+		global $wpdb, $post;
+		
+		// To ensure views have access to the product type...
+		if ( $post ) {
+			$product_terms = wp_get_object_terms( $post->ID, 'product_type' );
+			if ( $product_terms ) {
+				$product_type = sanitize_title( current( $product_terms )->name );
+			} else {
+				$product_type = apply_filters( 'default_product_type', 'simple' );
+			}
+		}
+		else {
+			$product_type = false;
+		}
 
 		wp_enqueue_script( 'woocommerce-deposits-payment-plans' );
 
@@ -89,9 +109,11 @@ class WC_Deposits_Plans_Admin {
 			$plan_name        = $plan->get_name();
 			$plan_description = $plan->get_description();
 			$payment_schedule = $plan->get_schedule();
+			$plan_type        = $plan->get_type();
 			include( 'views/html-edit-payment-plan.php' );
 		} else {
 			$editing = false;
+			$plan_type = 'percentage'; // default to percent for new items
 			include( 'views/html-payment-plans.php' );
 		}
 	}
@@ -128,7 +150,8 @@ class WC_Deposits_Plans_Admin {
 			$plan_id               = $editing;
 			$plan_name             = empty( $_POST['plan_name'] ) ? __( 'Payment Plan', 'woocommerce-deposits' ) : sanitize_text_field( $_POST['plan_name'] );
 			$plan_description      = empty( $_POST['plan_description'] ) ? '' : wp_kses_post( $_POST['plan_description'] );
-			$plan_amounts          = array_map( 'absint', $_POST['plan_amount'] );
+			$plan_type             = $_POST['plan_type'];
+			$plan_amounts          = array_map( array( $this, 'sanitize_plan_amounts'), $_POST['plan_amount'] );
 			$plan_interval_amounts = array_map( 'absint', $_POST['plan_interval_amount'] );
 			$plan_interval_units   = array_map( 'sanitize_text_field', $_POST['plan_interval_unit'] );
 			$payment_schedule      = array();
@@ -149,7 +172,8 @@ class WC_Deposits_Plans_Admin {
 					$wpdb->wc_deposits_payment_plans,
 					array(
 						'name'        => $plan_name,
-						'description' => $plan_description
+						'description' => $plan_description,
+						'type'        => $plan_type,
 					)
 				);
 
@@ -188,6 +212,23 @@ class WC_Deposits_Plans_Admin {
 		}
 
 		return false;
+	}
+
+	/**
+	 * Sanitize plan amounts but preserve special "remainder" value.
+	 * 
+	 * @param $var
+	 *
+	 * @return int
+	 */
+	public static function sanitize_plan_amounts( $var ) {
+		if ( is_numeric( $var ) ) {
+			return absint( $var );
+		}
+		if ( 'remainder' === $var ) {
+			return $var;
+		}
+		return 0;
 	}
 }
 WC_Deposits_Plans_Admin::get_instance();

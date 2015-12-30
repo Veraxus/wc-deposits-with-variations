@@ -24,8 +24,8 @@ class WC_Deposits_Cart_Manager {
 	public function __construct() {
 		add_action( 'wp_enqueue_scripts', array( $this, 'wp_enqueue_scripts' ) );
 		add_action( 'woocommerce_before_add_to_cart_button', array( $this, 'deposits_form_output' ), 99 );
-		add_filter( 'woocommerce_add_to_cart_validation', array( $this, 'validate_add_cart_item' ), 10, 3 );
-		add_filter( 'woocommerce_add_cart_item_data', array( $this, 'add_cart_item_data' ), 10, 2 );
+		add_filter( 'woocommerce_add_to_cart_validation', array( $this, 'validate_add_cart_item' ), 10, 4 );
+		add_filter( 'woocommerce_add_cart_item_data', array( $this, 'add_cart_item_data' ), 10, 3 );
 		add_filter( 'woocommerce_add_cart_item', array( $this, 'add_cart_item' ), 99, 1 );
 		add_filter( 'woocommerce_get_cart_item_from_session', array( $this, 'get_cart_item_from_session' ), 99, 3 );
 		add_filter( 'woocommerce_get_item_data', array( $this, 'get_item_data' ), 10, 2 );
@@ -138,7 +138,7 @@ class WC_Deposits_Cart_Manager {
 	 * @param mixed $qty
 	 * @return bool
 	 */
-	public function validate_add_cart_item( $passed, $product_id, $qty ) {
+	public function validate_add_cart_item( $passed, $product_id, $qty, $variation_id ) {
 		if ( ! WC_Deposits_Product_Manager::deposits_enabled( $product_id ) ) {
 			return $passed;
 		}
@@ -148,7 +148,14 @@ class WC_Deposits_Cart_Manager {
 
 		// Validate chosen plan
 		if ( ( 'yes' === $wc_deposit_option || WC_Deposits_Product_Manager::deposits_forced( $product_id ) ) && 'plan' === WC_Deposits_Product_Manager::get_deposit_type( $product_id ) ) {
-			if ( ! in_array( $wc_deposit_payment_plan, WC_Deposits_Plans_Manager::get_plan_ids_for_product( $product_id ) ) ) {
+			
+			$plans = WC_Deposits_Plans_Manager::get_plan_ids_for_product( $product_id );
+			
+			if ( $variation_id ) {
+				$plans = array_merge( $plans, WC_Deposits_Plans_Manager::get_plan_ids_for_product( $variation_id ) );
+			}
+			
+			if ( ! in_array( $wc_deposit_payment_plan, $plans ) ) {
 				wc_add_notice( __( 'Please select a valid payment plan', 'woocommerce-deposits' ), 'error' );
 				return false;
 			}
@@ -162,18 +169,21 @@ class WC_Deposits_Cart_Manager {
 	 * @param mixed $product_id
 	 * @return array
 	 */
-	public function add_cart_item_data( $cart_item_meta, $product_id ) {
-		if ( ! WC_Deposits_Product_Manager::deposits_enabled( $product_id ) ) {
+	public function add_cart_item_data( $cart_item_meta, $product_id, $variation_id ) {
+		
+		$item_id = ( $variation_id ) ? $variation_id : $product_id;
+		
+		if ( ! WC_Deposits_Product_Manager::deposits_enabled( $item_id ) ) {
 			return $cart_item_meta;
 		}
 
 		$wc_deposit_option       = isset( $_POST['wc_deposit_option'] ) ? sanitize_text_field( $_POST['wc_deposit_option'] ) : false;
 		$wc_deposit_payment_plan = isset( $_POST['wc_deposit_payment_plan'] ) ? sanitize_text_field( $_POST['wc_deposit_payment_plan'] ) : false;
 
-		if ( 'yes' === $wc_deposit_option || WC_Deposits_Product_Manager::deposits_forced( $product_id ) ) {
+		if ( 'yes' === $wc_deposit_option || WC_Deposits_Product_Manager::deposits_forced( $item_id ) ) {
 			$cart_item_meta['is_deposit'] = true;
 
-			if ( 'plan' === WC_Deposits_Product_Manager::get_deposit_type( $product_id ) ) {
+			if ( 'plan' === WC_Deposits_Product_Manager::get_deposit_type( $item_id ) ) {
 				$cart_item_meta['payment_plan'] = $wc_deposit_payment_plan;
 			} else {
 				$cart_item_meta['payment_plan'] = 0;
@@ -217,7 +227,9 @@ class WC_Deposits_Cart_Manager {
 				if ( ! empty( $cart_item['payment_plan'] ) ) {
 					$plan          = WC_Deposits_Plans_Manager::get_plan( $cart_item['payment_plan'] );
 					$total_percent = $plan->get_total_percent();
-					$cart_item['full_amount'] = ( $cart_item['data']->get_price() / 100 ) * $total_percent;
+					$cart_item['full_amount'] = ( 'percentage' === $plan->get_type() ) 
+						? ( ( $cart_item['data']->get_price() / 100 ) * $total_percent ) 
+						: $cart_item['data']->get_price();
 				} else {
 					$cart_item['full_amount'] = $cart_item['data']->get_price();
 				}

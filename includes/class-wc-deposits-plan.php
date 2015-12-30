@@ -12,6 +12,7 @@ class WC_Deposits_Plan {
 	private $name;
 	private $description;
 	private $schedule;
+	private $type;
 
 	/**
 	 * Plan Constructor
@@ -25,6 +26,7 @@ class WC_Deposits_Plan {
 		$this->id          = $plan->ID;
 		$this->name        = $plan->name;
 		$this->description = $plan->description;
+		$this->type        = isset( $plan->type ) ? $plan->type : 'percentage'; //default to percentage
 	}
 
 	/**
@@ -62,17 +64,25 @@ class WC_Deposits_Plan {
 			$this->schedule = $wpdb->get_results( $wpdb->prepare( "SELECT * FROM {$wpdb->wc_deposits_payment_plans_schedule} WHERE plan_id = %d;", $this->get_id() ) );
 		}
 
-		// order by time limit
-		usort( $this->schedule, array( $this, 'sort' ) );
+		// order by schedule index (ordering by length of time is WRONG!)
+		usort( $this->schedule, array( $this, 'sort_by_schedule_index' ) );
 
 		return $this->schedule;
+	}
+	
+	/**
+	 * Get the plan type for this plan.
+	 * @return string
+	 */
+	public function get_type() {
+		return $this->type;
 	}
 
 	/**
 	 * Sorts a schedule so it lists intervals from smallest to highest
 	 * Example: Immediately, 1 month, 2 weeks becomes Immediately, 2 weeks, 1 month
 	 */
-	private function sort( $schedule1, $schedule2 ) {
+	private function sort_by_time_length( $schedule1, $schedule2 ) {
 		$schedule1_interval = $schedule1->interval_amount * $this->get_unit_number_weight( $schedule1->interval_unit );
 		$schedule2_interval = $schedule2->interval_amount * $this->get_unit_number_weight( $schedule2->interval_unit );
 
@@ -81,6 +91,15 @@ class WC_Deposits_Plan {
 		}
 
 		return ( $schedule1_interval > $schedule2_interval ) ? 1 : -1;
+	}
+
+	/**
+	 * Sorts a schedule by it's schedule index
+	 * @param $schedule1
+	 * @param $schedule2
+	 */
+	private function sort_by_schedule_index( $schedule1, $schedule2 ) {
+		return ( $schedule1->schedule_index > $schedule2->schedule_index ) ? 1 : -1;
 	}
 
 	/**
@@ -112,12 +131,23 @@ class WC_Deposits_Plan {
 	 * Get the total percent of the original cost for this plan.
 	 * @return string
 	 */
-	public function get_total_percent() {
+	public function get_total_percent( $total_price = false ) {
 		$schedule      = $this->get_schedule();
 		$total_percent = 0;
 
 		foreach ( $schedule as $schedule_row ) {
+			if ( 'remainder' === $schedule_row->amount ) {
+				continue;
+			}
 			$total_percent += $schedule_row->amount;
+		}
+
+		if ( 'fixed' === $this->type && $total_price ) {
+			$total_percent = ( $total_percent / $total_price ) * 100;
+			if ( $total_percent <= 100 ) {
+				return round( $total_percent );
+			}
+			return 100;
 		}
 
 		return $total_percent;
@@ -154,7 +184,11 @@ class WC_Deposits_Plan {
 		}
 
 		if ( ! $amount ) {
-			$amount = $total_percent . '%';
+			if ( 'fixed' === $this->get_type() ) {
+				$amount = sprintf( __( '%s plus remainder', 'woocommerce-deposits' ), wc_price( $total_percent ) );
+			} else {
+				$amount = $total_percent . '%';
+			}
 		} else {
 			$amount = wc_price( $amount );
 		}
@@ -176,4 +210,3 @@ class WC_Deposits_Plan {
 		}
 	}
 }
-
