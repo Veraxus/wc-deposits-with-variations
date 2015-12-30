@@ -1,0 +1,40 @@
+*** WooCommerce Deposits Changelog ***
+
+2015.12.17 - version 1.1.4
+* Fix - Future Payment with interest is incorrect for scheduled orders.
+
+2015.12.03 - version 1.1.3
+* Fix - WC 2.5 Compatibility
+* Fix - Make labels look nicer on the front end.
+
+2015.10.29 - version 1.1.2
+* Fix - Future payments are now calculated correctly on the order page when using coupons.
+
+2015.09.29 - version 1.1.1
+* Fix - Only disable payment gateways on the front end.
+
+2015.08.19 - version 1.1.0
+* Feature - A default deposit type can now be set.
+* Feature - Default plans can now be set.
+* Tweak - Only show extra deposit options on products with deposits enabled.
+* Tweak - The product interface has been made clearer so 'inherit' will show the proper box, as well as what the site wide setting is.
+* Tweak - Show a "select options" button instead of "add to cart" on shop pages when deposits are optional or a plan is involved.
+* Fix - The "Future Payments" and "Due Today" areas will now only show up if there is a deposit required, otherwise the normal total area will show.
+
+2015.08.03 - version 1.0.2
+* Fix - Prevent planned orders from further reducing stock. Requires WC 2.4.0 for a needed filter, but works partially in 2.3 for most gateways.
+* Fix - Trigger admin emails for partially paid orders.
+* Fix - Handle forced deposits when creating orders manually.
+* Fix - When scheduling payments, use line item costs rather than product costs.
+
+2015.06.23 - version 1.0.1
+* Feature - Send an email after an order has been partially paid for.
+* Fix - Pass the order ID in to get_related_orders.
+* Fix - Error when trashing a Partially Paid order.
+* Fix - Fix the incorrect saving bug/data corruption that occurs when editing plans.
+* Fix - Schedule display when not 100%.
+* Fix - Don't calc tax when tax is disabled.
+* Tweak - woocommerce_deposits_create_order action when creating an order with deposit/payment plan settings.
+
+2015.06.10 - version 1.0.0
+ * First Release.
