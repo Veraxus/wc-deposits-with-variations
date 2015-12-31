@@ -65,7 +65,9 @@ class WC_Deposits_Scheduled_Order_Manager {
 			else {
 				$item['amount'] = ( $line_price / 100 ) * $schedule_row->amount;
 			}
-			
+
+			$item = apply_filters( 'woocommerce_deposits_before_schedule_plan_order', $item, $schedule_row, $payment_plan, $original_order_id );
+
 			$previous_payments += $item['amount'];
 				
 			// Create order
